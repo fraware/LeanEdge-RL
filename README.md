@@ -134,14 +134,6 @@ cargo bench
 - Xavier/Glorot weight initialization
 - Bounded action outputs
 
-## Documentation
-
-- [API Reference](docs/api.md)
-- [Integration Guide](docs/integration.md)
-- [Formal Verification](docs/verification.md)
-- [Performance Benchmarks](docs/benchmarks.md)
-- [Security Architecture](docs/security.md)
-
 ## Compliance & Safety
 
 Every release includes:
