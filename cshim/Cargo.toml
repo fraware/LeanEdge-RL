@@ -1,0 +1,25 @@
+[package]
+name = "leanrl_cshim"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "C++ shim and header generation for LeanEdge-RL"
+
+[lib]
+name = "leanrl_cshim"
+crate-type = ["staticlib", "cdylib"]
+
+[dependencies]
+leanrl_core = { path = "../core" }
+cxx = "1.0"
+cxxbridge-macro = "1.0"
+
+[build-dependencies]
+cxx-build = "1.0"
+
+[features]
+default = []
+eigen = []
+tensorrt = [] 

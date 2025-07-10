@@ -1,0 +1,57 @@
+[package]
+name = "leanrl_core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Core RL runtime library - formally verified, no_std compatible"
+
+[lib]
+name = "leanrl_core"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[features]
+default = ["std"]
+std = ["serde/std", "log/std"]
+alloc = ["serde/alloc"]
+simd_neon = ["packed_simd_2"]
+simd_avx2 = ["packed_simd_2"]
+serde = ["dep:serde"]
+rayon = ["dep:rayon", "std"]
+test-utils = ["std", "serde"]
+
+[dependencies]
+# Core dependencies
+serde = { workspace = true, optional = true }
+thiserror = { workspace = true }
+libc = { workspace = true }
+
+# SIMD support
+packed_simd_2 = { workspace = true, optional = true }
+
+# Logging (when std is available)
+log = { workspace = true, optional = true }
+
+# Serialization for weights
+bincode = { version = "1.3", optional = true }
+
+[dev-dependencies]
+criterion = { workspace = true, optional = true }
+nextest = { workspace = true, optional = true }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[profile.dev]
+opt-level = 0
+debug = true
+
+[profile.bench]
+opt-level = 3
+lto = "thin"
+codegen-units = 1 

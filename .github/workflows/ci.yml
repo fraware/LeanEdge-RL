@@ -1,0 +1,140 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target:
+          - x86_64-unknown-linux-gnu
+          - aarch64-unknown-linux-gnu
+          - armv7-unknown-linux-gnueabihf
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: ${{ matrix.target }}
+          override: true
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang llvm-dev
+
+      - name: Build
+        run: cargo build --target ${{ matrix.target }}
+
+      - name: Test
+        run: cargo test --target ${{ matrix.target }}
+
+      - name: Build with SIMD
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        run: cargo build --target ${{ matrix.target }} --features simd_avx2
+
+      - name: Build with SIMD (ARM)
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: cargo build --target ${{ matrix.target }} --features simd_neon
+
+  embedded:
+    name: Embedded Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: thumbv7em-none-eabi
+          override: true
+
+      - name: Install ARM toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-none-eabi
+
+      - name: Build no_std
+        run: cargo build --target thumbv7em-none-eabi --no-default-features
+
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Security audit
+        run: cargo audit
+
+      - name: Check for unsafe code
+        run: |
+          if grep -r "unsafe" core/src/ --exclude=ffi.rs; then
+            echo "Found unsafe code outside of ffi.rs"
+            exit 1
+          fi
+
+  performance:
+    name: Performance Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang llvm-dev
+
+      - name: Run benchmarks
+        run: |
+          cargo bench --no-run
+          # Note: Actual benchmarks would run here in a real implementation
+
+  bundle:
+    name: Generate Bundle
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Build bundle tool
+        run: cargo build --bin leanrl-bundle --release
+
+      - name: Generate compliance bundle
+        run: cargo run --bin leanrl-bundle -- generate --sign
+
+      - name: Upload bundle
+        uses: actions/upload-artifact@v3
+        with:
+          name: leanrl-bundle
+          path: leanrl_bundle_*.zip

@@ -1,0 +1,22 @@
+[build.env]
+passthrough = [
+    "RUST_BACKTRACE",
+    "RUST_LOG",
+    "CARGO_HTTP_PROXY",
+    "CARGO_HTTP_TIMEOUT",
+    "CARGO_REGISTRY_TIMEOUT",
+    "CARGO_NET_RETRY",
+    "CARGO_NET_GIT_FETCH_WITH_CLI",
+]
+
+[target.x86_64-unknown-linux-musl]
+image = "ghcr.io/cross-rs/x86_64-unknown-linux-musl:main"
+
+[target.aarch64-unknown-linux-gnu]
+image = "ghcr.io/cross-rs/aarch64-unknown-linux-gnu:main"
+
+[target.armv7-unknown-linux-gnueabihf]
+image = "ghcr.io/cross-rs/armv7-unknown-linux-gnueabihf:main"
+
+[target.thumbv7em-none-eabi]
+image = "ghcr.io/cross-rs/thumbv7em-none-eabi:main" 
