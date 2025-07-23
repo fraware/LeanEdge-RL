@@ -165,4 +165,3 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines. All unsafe co
 - **Q3 2025**: MVP tabular core, Lean export pipeline
 - **Q4 2025**: Linear FA + SIMD backends, compliance bundle
 - **Q1 2026**: Tiny-NN support, no_std thumbv7em
-- **Q2 2026**: Multi-threaded ensembles, commercial pilot
