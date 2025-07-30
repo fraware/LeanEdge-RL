@@ -7,7 +7,7 @@ A formally-verified, sub-millisecond reinforcement learning runtime for safety-c
 LeanEdge-RL provides a drop-in library for embedding RL agents into industrial control systems, robotics, and PLC-class controllers. Every release is accompanied by Lean 4 formal proofs and compliance artifacts.
 
 <p align="center">
-  <img src=".github/assets/LeanEdge-RL.png" alt="LeanEdge-RL width=400 Logo"/>
+  <img src=".github/assets/LeanEdge-RL.png" alt="LeanEdge‑RL Logo" width="400" />
 </p>
 
 ### Key Features
