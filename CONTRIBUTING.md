@@ -1,269 +1,219 @@
 # Contributing to LeanEdge-RL
 
-Thank you for your interest in contributing to LeanEdge-RL! This document outlines the development guidelines and contribution process.
+Thank you for your interest in contributing. This document describes setup, standards, and the pull-request workflow.
 
-## Development Setup
+## Development setup
 
 ### Prerequisites
 
-- Rust 1.78+ (stable)
-- Clang 18+ (for C/C++ components)
-- Lean 4 (for formal verification)
-- Git
+- **Rust**: stable with `rustfmt` and `clippy` (pinned in [rust-toolchain.toml](rust-toolchain.toml); `rustup` will pick it up automatically)
+- **Git**
+- **Optional**: Clang/LLVM for some native dependencies on certain platforms; cross-compilation toolchains for non-host triples
+- **Optional**: Lean 4 (`elan`) if you work on [lean/](lean/)
+- **Optional**: CMake 3.20+ for [cshim/cpp_tests](cshim/cpp_tests)
 
-### Building from Source
+### Clone and build
 
 ```bash
-# Clone the repository
 git clone https://github.com/leanrl/leanedge-rl.git
 cd leanedge-rl
 
-# Build all crates
 cargo build
-
-# Run tests
-cargo test
-
-# Build with SIMD support
-cargo build --features simd_avx2
-
-# Build for embedded targets
-cargo build --target thumbv7em-none-eabi --no-default-features
+cargo test --workspace
 ```
 
-## Code Standards
+### Feature and target examples
 
-### Rust Code
+```bash
+# SIMD (only on matching architecture)
+cargo build -p leanrl_core --features simd_avx2
+cargo build -p leanrl_core --features simd_neon   # aarch64 host
 
-- Follow Rust style guidelines (enforced by `rustfmt`)
-- Use `#![forbid(unsafe_code)]` in all modules except `ffi.rs`
-- Write comprehensive tests for all new functionality
-- Use `cargo clippy` for additional linting
+# Embedded-style core build
+cargo build -p leanrl_core --target thumbv7em-none-eabi --no-default-features
+```
 
-### Unsafe Code Policy
+## Code standards
 
-**CRITICAL**: Any new unsafe code requires:
+### Rust
 
-1. Two independent reviewers
-2. MIRI trace proof
-3. Documentation explaining the safety invariants
-4. Audit trail in the commit message
+- Run **`rustfmt`**: `cargo fmt --all`
+- Run **`clippy`** as in CI:
 
-Only `core/src/ffi.rs` is allowed to contain unsafe code, and it must be thoroughly audited.
+  ```bash
+  cargo clippy --workspace --all-targets --all-features -- -D warnings
+  ```
 
-### C++ Code
+- Add tests for new behavior (`cargo test -p leanrl_core` or `--workspace`)
 
-- Follow modern C++17 standards
-- Use RAII and smart pointers
-- Provide comprehensive error handling
-- Include unit tests using Google Test
+### `unsafe` policy
+
+**Any new `unsafe` must:**
+
+1. Be reviewed by two people when policy-critical  
+2. Be documented with safety invariants  
+3. Prefer MIRI where it applies (`cargo +nightly miri test`)  
+4. Land with a clear commit message  
+
+**Allowed files** (enforced in CI via [scripts/verify-unsafe-allowlist.sh](scripts/verify-unsafe-allowlist.sh)):
+
+- `core/src/ffi.rs` — C API  
+- `core/src/simd.rs` — SIMD intrinsics  
+
+To add another file, update the script and this list.
+
+On **Windows**, run the allowlist script with Git Bash or WSL: `bash scripts/verify-unsafe-allowlist.sh`.
+
+### C++
+
+- C++17 or as agreed by maintainers  
+- The GTest harness under [cshim/cpp_tests](cshim/cpp_tests) is a starting point; production integration should link `leanrl_core` and/or the `lr_*` API from your build system  
 
 ## Testing
 
-### Unit Tests
+### Unit and integration tests
 
 ```bash
-# Run all tests
-cargo test
-
-# Run tests with nextest (faster)
-cargo install nextest
-cargo nextest run
-
-# Run tests for specific crate
+cargo test --workspace
 cargo test -p leanrl_core
+cargo test -p leanrl_core --test smoke
 ```
 
-### Integration Tests
+### Crate-specific features
 
 ```bash
-# Run integration tests
-cargo test --test integration
-
-# Run with specific features
-cargo test --features simd_avx2
+cargo test -p leanrl_core --features simd_avx2
 ```
 
-### Performance Tests
+### Nextest (optional)
 
 ```bash
-# Run benchmarks
-cargo bench
-
-# Performance regression testing
-cargo bench --bench performance
+cargo install cargo-nextest --locked
+cargo nextest run --workspace
 ```
 
-### Security Tests
+### Benchmarks
 
 ```bash
-# Security audit
+cargo bench -p leanrl_core
+```
+
+There is no `performance` bench target; Criterion benches live under [core/benches](core/benches).
+
+### Security
+
+```bash
 cargo audit
-
-# Check for unsafe code
-cargo install cargo-geiger
-cargo geiger
-
-# MIRI testing
-cargo +nightly miri test
+# Optional: cargo install cargo-deny --locked && cargo deny check
+cargo install cargo-geiger --locked   # optional unsafe survey
+cargo +nightly miri test -p leanrl_core   # if applicable
 ```
 
-## Formal Verification
+## Formal verification (Lean 4)
 
-### Lean 4 Integration
+- Specifications live under [lean/](lean/lakefile.lean) (`lake build`).  
+- Optional export tooling can live in a submodule at `lake-packages/leanrl_export`; see [docs/formal-verification.md](docs/formal-verification.md).  
+- Keep CI proof time reasonable (on the order of minutes for the current small spec).  
 
-- All safety invariants must be proven in Lean 4
-- Proofs must check in ≤ 90 seconds in CI
-- Use the `lake-packages/leanrl_export` package for policy export
-
-### Writing Proofs
+Example skeleton (names are illustrative):
 
 ```lean
--- Example safety invariant proof
 theorem action_bounds_invariant (s : EnvState) (obs : Obs) (action : Action) :
   inv s → inv (step s obs action) := by
-  -- Proof implementation
   sorry
 ```
 
-## Pull Request Process
+## Pull requests
 
-### Before Submitting
+### Before opening a PR
 
-1. **Fork and clone** the repository
-2. **Create a feature branch** from `main`
-3. **Write tests** for new functionality
-4. **Update documentation** as needed
-5. **Run all checks** locally
-
-### Required Checks
+1. Branch from `main`  
+2. Add or update tests and docs  
+3. Run locally:
 
 ```bash
-# Format code
-cargo fmt
-
-# Lint code
-cargo clippy
-
-# Run tests
-cargo test
-
-# Security audit
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo test --workspace
 cargo audit
+bash scripts/verify-unsafe-allowlist.sh
+```
 
-# Check unsafe code
-grep -r "unsafe" core/src/ --exclude=ffi.rs
+Cross-builds (optional locally, covered in CI):
 
-# Build all targets
+```bash
 cargo build --target x86_64-unknown-linux-gnu
 cargo build --target aarch64-unknown-linux-gnu
-cargo build --target thumbv7em-none-eabi --no-default-features
+cargo build -p leanrl_core --target thumbv7em-none-eabi --no-default-features
 ```
 
-### PR Requirements
+### PR checklist
 
-1. **Clear description** of changes
-2. **Link to related issues** or RFCs
-3. **All CI checks passing**
-4. **Code review approval** from maintainers
-5. **Performance impact assessment** (if applicable)
+- Clear description and linked issues where relevant  
+- CI green  
+- Maintainer review  
+- Note performance or ABI impact when relevant  
 
-### Commit Messages
+### Commits
 
-Use [Conventional Commits](https://www.conventionalcommits.org/):
+Prefer [Conventional Commits](https://www.conventionalcommits.org/):
 
+```text
+feat(core): ...
+fix(ffi): ...
+docs: ...
+test: ...
 ```
-feat(core): add new RL algorithm implementation
-fix(ffi): resolve memory leak in C API
-docs: update API documentation
-test: add integration tests for SIMD backends
-```
 
-## API Changes
+## API and ABI
 
-### Public API Modifications
+### Rust API
 
-Any changes to public APIs require:
+Breaking changes should follow semver and, when needed, a short migration note in the PR description or the GitHub release.
 
-1. **RFC process** for breaking changes
-2. **Semantic versioning** compliance
-3. **Migration guide** for users
-4. **Backward compatibility** considerations
+### C API (`lr_*`)
 
-### C API Stability
+Treat the C ABI as stable across minor versions unless explicitly bumped. Add tests for new entry points.
 
-The C API (`lr_*` functions) must maintain ABI stability:
+## Performance and memory (targets)
 
-- No breaking changes without major version bump
-- All changes must be backward compatible
-- Comprehensive testing across platforms
+Documented targets (see README) are **goals**. If you change hot paths or allocations, mention measured impact in the PR.
 
-## Performance Requirements
+## Security
 
-### Latency Targets
+- No secrets in the repo  
+- Validate untrusted inputs at FFI boundaries  
+- Prefer `cargo deny` / `cargo audit` clean in CI  
 
-- P99 ≤ 100 µs on Cortex-A53 @ 1.4 GHz
-- P95 ≤ 120 µs in CI performance gates
-- Sub-millisecond performance on all supported platforms
+Report sensitive issues through the project’s security contact if published; otherwise use GitHub private reporting if enabled.
 
-### Memory Footprint
+## Releases
 
-- Library code ≤ 350 kB
-- Static weights ≤ 256 kB
-- RAM usage ≤ 1 MB
+### Checklist
 
-## Security Guidelines
+1. Tests and clippy clean on supported targets  
+2. Release notes summarized in the GitHub release (or PR) as appropriate  
+3. Version bumped in workspace `Cargo.toml` as appropriate  
+4. Tag `v*.*.*` triggers [.github/workflows/release.yml](.github/workflows/release.yml) (binary tarball for `leanrl-bundle` on Linux)  
 
-### Supply Chain Security
-
-- All dependencies must be auditable
-- SBOM generation for every release
-- Sigstore signing for all artifacts
-- TPM attestation for critical deployments
-
-### Code Security
-
-- No hardcoded secrets
-- Secure random number generation
-- Input validation and sanitization
-- Memory safety guarantees
-
-## Release Process
-
-### Pre-release Checklist
-
-1. **All tests passing** on all targets
-2. **Performance benchmarks** within targets
-3. **Security audit** completed
-4. **Documentation** updated
-5. **Compliance bundle** generated
-6. **Formal proofs** verified
-
-### Release Steps
+### Bundle commands
 
 ```bash
-# Generate compliance bundle
-cargo run --bin leanrl-bundle -- generate --sign --tpm-attest
-
-# Verify bundle integrity
-cargo run --bin leanrl-bundle -- verify leanrl_bundle_*.zip
-
-# Tag release
-git tag -a v1.0.0 -m "Release v1.0.0"
-git push origin v1.0.0
+cargo run -p leanrl-bundle -- generate
+cargo run -p leanrl-bundle -- generate --sign    # when signing is configured
+cargo run -p leanrl-bundle -- verify path/to/leanrl_bundle_*.zip
 ```
 
-## Getting Help
+## Getting help
 
-- **Issues**: Use GitHub Issues for bug reports and feature requests
-- **Discussions**: Use GitHub Discussions for questions and ideas
-- **RFCs**: Submit RFCs for major changes in `/rfcs`
-- **Security**: Report security issues privately to security@leanrl.org
+- **Issues**: bugs and features  
+- **Discussions**: design questions (if enabled)  
+- **RFCs**: `/rfcs` for large changes, if present  
 
-## Code of Conduct
+## Code of conduct
 
-This project follows the [Rust Code of Conduct](https://www.rust-lang.org/policies/code-of-conduct). Please be respectful and inclusive in all interactions.
+This project follows the [Rust Code of Conduct](https://www.rust-lang.org/policies/code-of-conduct).
 
 ## License
 
-By contributing to LeanEdge-RL, you agree that your contributions will be licensed under the MIT OR Apache-2.0 license.
+Contributions are licensed under **MIT OR Apache-2.0**, in line with [LICENSE-MIT](LICENSE-MIT) and [LICENSE-APACHE](LICENSE-APACHE).
