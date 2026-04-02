@@ -21,6 +21,12 @@ class Obs4;
 class Action2;
 class Env4x2;
 
+/// Matches the `cxx` bridge `StateCounts` (step / episode counters).
+struct StateCounts {
+    uint64_t step_count;
+    uint64_t episode_count;
+};
+
 // Observation class for 4-dimensional observations
 class Obs4 {
 public:
@@ -106,7 +112,7 @@ public:
     std::unique_ptr<Action2> step(const Obs4& obs);
     
     // State management
-    std::pair<uint64_t, uint64_t> get_state() const; // (step_count, episode_count)
+    StateCounts get_state() const;
     
     // Safety and verification
     bool check_invariant(const Obs4& obs, const Action2& action) const;

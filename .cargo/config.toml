@@ -1,5 +1,6 @@
-[build]
-target = "x86_64-unknown-linux-gnu"
+# Per-target linker flags for cross-compilation. Do not set a global `build.target` here so
+# `cargo build` uses the host triple (e.g. Windows MSVC). CI and release pipelines pass
+# `--target` explicitly where needed.
 
 [target.x86_64-unknown-linux-gnu]
 linker = "clang"
@@ -40,19 +41,3 @@ rustflags = [
     "-C", "link-arg=-nostartfiles",
     "-C", "link-arg=-Tlink.x",
 ]
-
-[profile.release]
-opt-level = 3
-lto = "thin"
-codegen-units = 1
-panic = "abort"
-strip = true
-
-[profile.dev]
-opt-level = 0
-debug = true
-
-[profile.bench]
-opt-level = 3
-lto = "thin"
-codegen-units = 1 

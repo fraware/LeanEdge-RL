@@ -1,11 +1,10 @@
 use anyhow::Result;
-use std::path::Path;
+use chrono::Utc;
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::fs::File;
 use std::io::Write;
-use serde::{Serialize, Deserialize};
-use chrono::{DateTime, Utc};
-use sha2::{Sha256, Digest};
-use hex;
+use std::path::Path;
 
 /// SPDX SBOM document
 #[derive(Debug, Serialize, Deserialize)]
@@ -78,13 +77,13 @@ pub struct Relationship {
 /// Generate SBOM
 pub fn generate_sbom(output_path: &Path) -> Result<()> {
     println!("Generating SBOM...");
-    
+
     let sbom = create_spdx_document()?;
-    
+
     let mut file = File::create(output_path)?;
     let json = serde_json::to_string_pretty(&sbom)?;
     file.write_all(json.as_bytes())?;
-    
+
     println!("SBOM generated: {}", output_path.display());
     Ok(())
 }
@@ -93,7 +92,7 @@ pub fn generate_sbom(output_path: &Path) -> Result<()> {
 pub fn verify_sbom(sbom_path: &Path) -> Result<()> {
     let content = std::fs::read_to_string(sbom_path)?;
     let _sbom: SpdxDocument = serde_json::from_str(&content)?;
-    
+
     println!("SBOM verification passed");
     Ok(())
 }
@@ -102,22 +101,20 @@ pub fn verify_sbom(sbom_path: &Path) -> Result<()> {
 fn create_spdx_document() -> Result<SpdxDocument> {
     let now = Utc::now();
     let timestamp = now.format("%Y-%m-%dT%H:%M:%SZ").to_string();
-    
+
     let mut packages = Vec::new();
     let mut relationships = Vec::new();
-    
+
     // Add main package
     let main_package = Package {
         spdx_id: "SPDXRef-leanrl-core".to_string(),
         name: "LeanEdge-RL Core".to_string(),
         version_info: env!("CARGO_PKG_VERSION").to_string(),
         package_file_name: "libleanrl_core.a".to_string(),
-        checksums: vec![
-            Checksum {
-                algorithm: "SHA256".to_string(),
-                checksum_value: calculate_file_hash("core/src/lib.rs")?,
-            }
-        ],
+        checksums: vec![Checksum {
+            algorithm: "SHA256".to_string(),
+            checksum_value: calculate_file_hash("core/src/lib.rs")?,
+        }],
         license_concluded: "MIT OR Apache-2.0".to_string(),
         license_declared: "MIT OR Apache-2.0".to_string(),
         copyright_text: "Copyright (c) 2025 LeanEdge-RL Team".to_string(),
@@ -125,19 +122,17 @@ fn create_spdx_document() -> Result<SpdxDocument> {
         description: "Core RL runtime library for safety-critical edge systems".to_string(),
     };
     packages.push(main_package);
-    
+
     // Add C++ shim package
     let cshim_package = Package {
         spdx_id: "SPDXRef-leanrl-cshim".to_string(),
         name: "LeanEdge-RL C++ Shim".to_string(),
         version_info: env!("CARGO_PKG_VERSION").to_string(),
         package_file_name: "libleanrl_cshim.a".to_string(),
-        checksums: vec![
-            Checksum {
-                algorithm: "SHA256".to_string(),
-                checksum_value: calculate_file_hash("cshim/src/lib.rs")?,
-            }
-        ],
+        checksums: vec![Checksum {
+            algorithm: "SHA256".to_string(),
+            checksum_value: calculate_file_hash("cshim/src/lib.rs")?,
+        }],
         license_concluded: "MIT OR Apache-2.0".to_string(),
         license_declared: "MIT OR Apache-2.0".to_string(),
         copyright_text: "Copyright (c) 2025 LeanEdge-RL Team".to_string(),
@@ -145,7 +140,7 @@ fn create_spdx_document() -> Result<SpdxDocument> {
         description: "C++ shim and header generation for LeanEdge-RL".to_string(),
     };
     packages.push(cshim_package);
-    
+
     // Add dependencies
     let dependencies = vec![
         ("thiserror", "1.0", "MIT OR Apache-2.0"),
@@ -163,19 +158,17 @@ fn create_spdx_document() -> Result<SpdxDocument> {
         ("chrono", "0.4", "MIT OR Apache-2.0"),
         ("anyhow", "1.0", "MIT OR Apache-2.0"),
     ];
-    
+
     for (i, (name, version, license)) in dependencies.iter().enumerate() {
         let package = Package {
             spdx_id: format!("SPDXRef-dependency-{}", i),
             name: name.to_string(),
             version_info: version.to_string(),
             package_file_name: format!("{}-{}.crate", name, version),
-            checksums: vec![
-                Checksum {
-                    algorithm: "SHA256".to_string(),
-                    checksum_value: format!("placeholder_hash_{}", i),
-                }
-            ],
+            checksums: vec![Checksum {
+                algorithm: "SHA256".to_string(),
+                checksum_value: format!("placeholder_hash_{}", i),
+            }],
             license_concluded: license.to_string(),
             license_declared: license.to_string(),
             copyright_text: "Copyright (c) respective authors".to_string(),
@@ -183,7 +176,7 @@ fn create_spdx_document() -> Result<SpdxDocument> {
             description: format!("Dependency: {}", name),
         };
         packages.push(package);
-        
+
         // Add relationship
         relationships.push(Relationship {
             spdx_element_id: "SPDXRef-leanrl-core".to_string(),
@@ -191,14 +184,14 @@ fn create_spdx_document() -> Result<SpdxDocument> {
             relationship_type: "DEPENDS_ON".to_string(),
         });
     }
-    
+
     // Add relationship between core and cshim
     relationships.push(Relationship {
         spdx_element_id: "SPDXRef-leanrl-cshim".to_string(),
         related_spdx_element: "SPDXRef-leanrl-core".to_string(),
         relationship_type: "DEPENDS_ON".to_string(),
     });
-    
+
     let creation_info = CreationInfo {
         creators: vec![
             "Tool: leanrl-bundle".to_string(),
@@ -207,7 +200,7 @@ fn create_spdx_document() -> Result<SpdxDocument> {
         created: timestamp,
         license_list_version: "3.19".to_string(),
     };
-    
+
     Ok(SpdxDocument {
         spdx_id: "SPDXRef-DOCUMENT".to_string(),
         spdx_version: "SPDX-2.3".to_string(),
@@ -227,4 +220,4 @@ fn calculate_file_hash(file_path: &str) -> Result<String> {
     hasher.update(file_path.as_bytes());
     let hash = hasher.finalize();
     Ok(hex::encode(hash))
-} 
+}

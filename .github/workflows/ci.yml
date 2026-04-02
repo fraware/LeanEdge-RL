@@ -5,11 +5,42 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main]
+  schedule:
+    - cron: "0 12 * * 1"
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  lint:
+    name: Format and Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: cargo fmt
+        run: cargo fmt --all -- --check
+
+      - name: cargo clippy
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+  deny:
+    name: cargo deny
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check
+
   test:
     name: Test
     runs-on: ubuntu-latest
@@ -23,31 +54,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
-          target: ${{ matrix.target }}
-          override: true
+          targets: ${{ matrix.target }}
 
-      - name: Install dependencies
+      - name: Install cross compilers
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang llvm-dev
+          sudo apt-get install -y clang llvm-dev gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf
+
+      - uses: Swatinem/rust-cache@v2
 
       - name: Build
-        run: cargo build --target ${{ matrix.target }}
+        run: cargo build --workspace --target ${{ matrix.target }}
 
       - name: Test
-        run: cargo test --target ${{ matrix.target }}
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        run: cargo test --workspace --target ${{ matrix.target }}
 
       - name: Build with SIMD
         if: matrix.target == 'x86_64-unknown-linux-gnu'
-        run: cargo build --target ${{ matrix.target }} --features simd_avx2
+        run: cargo build -p leanrl_core --target ${{ matrix.target }} --features simd_avx2
 
       - name: Build with SIMD (ARM)
         if: matrix.target == 'aarch64-unknown-linux-gnu'
-        run: cargo build --target ${{ matrix.target }} --features simd_neon
+        run: cargo build -p leanrl_core --target ${{ matrix.target }} --features simd_neon
 
   embedded:
     name: Embedded Build
@@ -55,20 +86,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
-          target: thumbv7em-none-eabi
-          override: true
+          targets: thumbv7em-none-eabi
 
       - name: Install ARM toolchain
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-arm-none-eabi
 
+      - uses: Swatinem/rust-cache@v2
+
       - name: Build no_std
-        run: cargo build --target thumbv7em-none-eabi --no-default-features
+        run: cargo build -p leanrl_core --target thumbv7em-none-eabi --no-default-features
 
   security:
     name: Security Audit
@@ -76,43 +106,59 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
 
       - name: Security audit
         run: cargo audit
 
-      - name: Check for unsafe code
-        run: |
-          if grep -r "unsafe" core/src/ --exclude=ffi.rs; then
-            echo "Found unsafe code outside of ffi.rs"
-            exit 1
-          fi
+      - name: Check unsafe allowlist
+        run: bash scripts/verify-unsafe-allowlist.sh
 
   performance:
-    name: Performance Test
+    name: Benchmarks compile
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
+      - uses: dtolnay/rust-toolchain@stable
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y clang llvm-dev
+      - uses: Swatinem/rust-cache@v2
 
-      - name: Run benchmarks
+      - name: cargo bench (no-run)
+        run: cargo bench -p leanrl_core --no-run
+
+  lean:
+    name: Lean specs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Elan
         run: |
-          cargo bench --no-run
-          # Note: Actual benchmarks would run here in a real implementation
+          curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> $GITHUB_PATH
+
+      - name: lake build
+        working-directory: lean
+        run: lake build
+
+  cpp_tests:
+    name: C++ shim tests (GTest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure and build
+        run: |
+          cmake -B cshim/cpp_tests/build -S cshim/cpp_tests -DCMAKE_BUILD_TYPE=Release
+          cmake --build cshim/cpp_tests/build
+
+      - name: ctest
+        working-directory: cshim/cpp_tests/build
+        run: ctest --output-on-failure
 
   bundle:
     name: Generate Bundle
@@ -121,20 +167,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
 
       - name: Build bundle tool
-        run: cargo build --bin leanrl-bundle --release
+        run: cargo build -p leanrl-bundle --release
 
       - name: Generate compliance bundle
-        run: cargo run --bin leanrl-bundle -- generate --sign
+        env:
+          LEANRL_BUNDLE_SIGN: ${{ secrets.LEANRL_BUNDLE_SIGN }}
+        run: |
+          if [ "${LEANRL_BUNDLE_SIGN}" = "true" ]; then
+            cargo run -p leanrl-bundle --release -- generate --sign
+          else
+            cargo run -p leanrl-bundle --release -- generate
+          fi
 
       - name: Upload bundle
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: leanrl-bundle
           path: leanrl_bundle_*.zip

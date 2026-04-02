@@ -5,21 +5,16 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "C++ shim and header generation for LeanEdge-RL"
+description = "C/C++ integration re-exports and headers for LeanEdge-RL"
 
 [lib]
 name = "leanrl_cshim"
-crate-type = ["staticlib", "cdylib"]
+crate-type = ["rlib"]
 
 [dependencies]
 leanrl_core = { path = "../core" }
-cxx = "1.0"
-cxxbridge-macro = "1.0"
-
-[build-dependencies]
-cxx-build = "1.0"
 
 [features]
 default = []
 eigen = []
-tensorrt = [] 
+tensorrt = []
