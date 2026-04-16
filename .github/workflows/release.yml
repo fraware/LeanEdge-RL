@@ -30,7 +30,7 @@ jobs:
           (cd dist && tar czf leanrl-bundle-x86_64-unknown-linux-gnu.tar.gz leanrl-bundle)
 
       - name: Upload to GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             dist/leanrl-bundle-x86_64-unknown-linux-gnu.tar.gz
