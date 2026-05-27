@@ -15,13 +15,12 @@
 
 *A small, fast reinforcement-learning runtime for safety-conscious edge systems—Rust at the core, Lean 4 on the path to proof.*
 
-[![CI](https://github.com/leanrl/leanedge-rl/actions/workflows/ci.yml/badge.svg)](https://github.com/leanrl/leanedge-rl/actions/workflows/ci.yml)
 [![Rust](https://img.shields.io/badge/rust-stable-orange.svg)](rust-toolchain.toml)
 [![License](https://img.shields.io/badge/license-MIT%20%7C%20Apache--2.0-blue.svg)](LICENSE-MIT)
 
 <br />
 
-<img src=".github/assets/LeanEdge-RL.png" alt="LeanEdge-RL" width="360" />
+<img src=".github/assets/LeanEdge-RL.png" alt="LeanEdge-RL" width="200" />
 
 <sub>If the image is missing, add <code>LeanEdge-RL.png</code> under <a href=".github/assets/README.md"><code>.github/assets/</code></a>.</sub>
 
