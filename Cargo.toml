@@ -20,7 +20,7 @@ serde = { version = "1.0", features = ["derive"] }
 rayon = { version = "1.8" }
 
 # Testing and benchmarking
-criterion = { version = "0.5" }
+criterion = { version = "0.8" }
 
 # Security and compliance
 cargo-auditable = { version = "0.6" }
