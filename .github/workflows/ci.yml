@@ -27,7 +27,7 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: cargo clippy
-        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+        run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
 
   deny:
     name: cargo deny
@@ -66,19 +66,19 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Build
-        run: cargo build --workspace --target ${{ matrix.target }}
+        run: cargo build --locked --workspace --target ${{ matrix.target }}
 
       - name: Test
         if: matrix.target == 'x86_64-unknown-linux-gnu'
-        run: cargo test --workspace --target ${{ matrix.target }}
+        run: cargo test --locked --workspace --target ${{ matrix.target }}
 
       - name: Build with SIMD
         if: matrix.target == 'x86_64-unknown-linux-gnu'
-        run: cargo build -p leanrl_core --target ${{ matrix.target }} --features simd_avx2
+        run: cargo build --locked -p leanrl_core --target ${{ matrix.target }} --features simd_avx2
 
       - name: Build with SIMD (ARM)
         if: matrix.target == 'aarch64-unknown-linux-gnu'
-        run: cargo build -p leanrl_core --target ${{ matrix.target }} --features simd_neon
+        run: cargo build --locked -p leanrl_core --target ${{ matrix.target }} --features simd_neon
 
   embedded:
     name: Embedded Build
@@ -98,7 +98,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Build no_std
-        run: cargo build -p leanrl_core --target thumbv7em-none-eabi --no-default-features
+        run: cargo build --locked -p leanrl_core --target thumbv7em-none-eabi --no-default-features
 
   security:
     name: Security Audit
@@ -128,7 +128,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: cargo bench (no-run)
-        run: cargo bench -p leanrl_core --no-run
+        run: cargo bench --locked -p leanrl_core --no-run
 
   lean:
     name: Lean specs
@@ -172,16 +172,16 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Build bundle tool
-        run: cargo build -p leanrl-bundle --release
+        run: cargo build --locked -p leanrl-bundle --release
 
       - name: Generate compliance bundle
         env:
           LEANRL_BUNDLE_SIGN: ${{ secrets.LEANRL_BUNDLE_SIGN }}
         run: |
           if [ "${LEANRL_BUNDLE_SIGN}" = "true" ]; then
-            cargo run -p leanrl-bundle --release -- generate --sign
+            cargo run --locked -p leanrl-bundle --release -- generate --sign
           else
-            cargo run -p leanrl-bundle --release -- generate
+            cargo run --locked -p leanrl-bundle --release -- generate
           fi
 
       - name: Upload bundle
